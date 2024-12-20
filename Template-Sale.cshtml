@@ -1,0 +1,569 @@
+@model SharePortfolio.SellLedgerEntry
+@using SharePortfolio
+@using System
+@using System.Linq
+@{
+
+	string FormatFxDetails(DateOnly transactionDate, FxRateDetail fxRate)
+	{
+		var provider = fxRate.Provider != "ATO" && fxRate.Provider != "RBA" ? fxRate.Provider : null;
+		var qualifier = transactionDate != fxRate.Date ? " " + fxRate.Date.ToString("dd-MMM-yyyy") : "";
+		qualifier += fxRate.Provider != "ATO" && fxRate.Provider != "RBA"
+			? (qualifier.Length == 0 ? "" : " ") + fxRate.Provider
+			: "";
+
+		return $"(1 AUD/{fxRate.Rate.ToString("0.0000")} USD{qualifier})";
+	}
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>CSS Template</title>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<style>
+		body {
+			font-family: "Segoe UI Light";
+			font-size: 1em;
+		}
+
+		footer {
+			background-color: #f1f1f1;
+			padding: 10px;
+			font-family: "Segoe UI";
+			font-size: 0.6em;
+			text-align: right;
+			border-top: 1px solid #ddd;
+			margin-top: 1em;
+		}
+
+		.sidenav {
+			height: max-content;
+			position: fixed;
+			z-index: 1;
+			border: 1px solid #a0a0a0;
+			border-radius: 0.25em;
+			overflow-x: hidden;
+		}
+
+		div.box {
+			margin: 0.25em;
+			padding: 0.25em;
+			text-align: right;
+			width: 120px;
+		}
+
+			div.box div {
+				padding: 0.25em;
+			}
+
+			div.box p {
+				font-family: "Segoe UI Semibold";
+				font-size: 0.6em;
+				padding: 0;
+				margin: 0;
+				text-transform: uppercase;
+			}
+
+		.main,
+		.top {
+			position: fixed;
+			margin-left: 140px;
+			padding-left: 20px;
+		}
+
+		h1,
+		h2,
+		h3,
+		p {
+			margin: 0;
+		}
+
+			h3.subsection {
+				margin-top: 0.5em;
+			}
+
+		table {
+			font-family: "Segoe UI Light";
+			font-size: 0.8em;
+			border-spacing: 0;
+			border-collapse: collapse;
+		}
+
+		tr.band {
+			background-color: #f0f0f0;
+		}
+
+		.subsection {
+			background-color: #fff;
+		}
+
+		td,
+		th {
+			padding: 2px 10px 2px 3px;
+			vertical-align: top;
+		}
+
+		th {
+			text-align: left;
+			font-family: "Segoe UI Semibold";
+			font-style: normal;
+			text-transform: capitalize;
+			vertical-align: bottom;
+			background-color: #fff;
+			border-bottom: 1px solid #a0a0a0;
+		}
+
+		td > p {
+			font-size: 0.8em;
+		}
+
+		td.bold {
+			font-family: "Segoe UI Semibold";
+		}
+
+		td.total {
+			border-bottom-color: #a0a0a0;
+			border-bottom-style: double;
+			border-top-color: #a0a0a0;
+			border-top-style: solid;
+			border-top-width: 1px;
+		}
+
+		td.subtotal {
+			border-bottom-style: solid;
+			border-bottom-width: 1px;
+			border-bottom-color: #a0a0a0;
+		}
+
+		tr.section > td {
+			font-family: "Segoe UI Semibold";
+			text-decoration: underline;
+			text-transform: capitalize;
+			border-top-color: #a0a0a0;
+			border-top-style: solid;
+			border-top-width: 1px;
+			background-color: #a0a0a0;
+			padding: 0.5em 0em 0.5em 0.25em;
+		}
+
+		tr.subsection > td {
+			font-family: "Segoe UI";
+			text-decoration: underline;
+			text-transform: lowercase;
+		}
+
+		tr.note > td {
+			text-transform: lowercase;
+			font-size: smaller;
+		}
+
+		@@media print {
+			tr {
+				page-break-inside: avoid; /* For older browsers */
+				break-inside: avoid; /* For modern browsers */
+			}
+
+			.page-break {
+				page-break-before: always;
+			}
+		}
+	</style>
+</head>
+<body>
+	<div class="sidenav">
+		<div class="box">@Model.Reference<p>Reference</p></div>
+		<div class="box">@Model.Beneficiary<p>Beneficiary</p></div>
+		<div class="box">@Model.TransactionDate.ToString("dd-MMM-yyyy")<p>Transaction Date</p></div>
+		<div class="box">@Model.SettlementDate.ToString("dd-MMM-yyyy")<p>Settlement Date</p></div>
+		<div class="box">@Model.Quantity.ToString("#,###,##0.0###")<p>Quantity</p></div>
+		<div class="box">@Model.Symbol<p>Security</p></div>
+		<div class="box">@Model.NetProceedsAUD.ToString("$#,###,##0.00")<p>Net Proceeds</p></div>
+		<div class="box">@Model.NetCapitalGainAUD.ToString("$#,###,##0.00")<p>Capital Gain</p></div>
+	</div>
+	<div class="main">
+		<table>
+			<thead>
+				<tr><td colspan="7">
+						<div>
+							<h2>Capital Gain Summary from Sale of Shares</h2>
+							<p>Sold @Model.Quantity.ToString("#,###,##0.0###") Microsoft Corporation (@Model.Symbol) shares at @Model.StrikePrice.ToString("#,###,##0.00##") USD.</p>
+						</div>
+				</td></tr>
+			<tr>
+				<th width="100">date</th>
+				<th width="465">description</th>
+				<th style="text-align: right" width="85">Amount</th>
+				<th style="text-align: right" width="85">Cost Base Deduction</th>
+				<th style="text-align: right" width="85">Cost Base</th>
+				<th style="text-align: right" width="85">Proceeds</th>
+				<th style="text-align: right" width="85">Gain/Loss</th>
+			</tr>
+			</thead>
+			<tbody>
+			<!-- Capital Losses -->
+			@if (Model.CapitalLossLotsSold.Quantity > 0)
+			{
+				<tr class="subsection">
+					<td colspan="7">Acquisition/Purchase costs</td>
+				</tr>
+
+				var rowCount = 0;
+				foreach (var stockLot in Model.CapitalLossLotsSold.LotsSold)
+				{
+					<tr class="@(rowCount++ % 2 == 0 ? "band" : "")">
+						<td>@stockLot.BuyDate.ToString("dd-MMM-yyyy")</td>
+						<td>
+							Acquisition of @stockLot.QuantitySold.ToString("#,###,##0.0###") @Model.Symbol shares at @stockLot.CostUnitAUD.ToString("#,###,##0.00") (#@stockLot.Reference)
+							<p>Qty: @stockLot.QuantitySold.ToString("#,###,##0.0###") x Cost: @stockLot.CostUnitAUD.ToString("#,###,##0.00##") = @stockLot.CostAUD.ToString("#,###,##0.00")</p>
+						</td>
+						<td style="text-align: right">@stockLot.CostAUD.ToString("$#,###,##0.00")</td>
+						<td style="text-align: right"></td>
+						<td style="text-align: right">@stockLot.CostAUD.ToString("$#,###,##0.00")</td>
+						<td colspan="2"></td>
+					</tr>
+				}
+
+				<tr class="subsection">
+					<td colspan="7">Incidental Acquisition/Purchase costs</td>
+				</tr>
+				rowCount = 0;
+				foreach (var stockLot in Model.CapitalLossLotsSold.LotsSold)
+				{
+					<tr class="@(rowCount++ % 2 == 0 ? "band" : "")">
+						<td>@stockLot.BuyDate.ToString("dd-MMM-yyyy")</td>
+						<td>
+							ESS Taxes Paid (#@stockLot.Reference)
+							<p>FMV: @stockLot.BuyMarketPrice.ToString("#,###,##0.00##") - Strike: @stockLot.BuyStrikePrice.ToString("#,###,##0.00##") = @stockLot.EssGain.ToString("#,###,##0.00##") x Qty: @stockLot.QuantitySold.ToString("#,###,##0.0###") = @stockLot.EssTotalGain.ToString("#,###,##0.0###") USD @(FormatFxDetails(stockLot.BuyDate, stockLot.FxRate))</p>
+						</td>
+						<td style="text-align: right"></td>
+						<td style="text-align: right">@stockLot.EssTaxPaid.ToString("$#,###,##0.00")</td>
+						<td style="text-align: right">@stockLot.EssTaxPaid.ToString("$#,###,##0.00")</td>
+						<td colspan="2"></td>
+					</tr>
+				}
+
+				<tr class="subsection">
+					<td colspan="5">Incidental CGT Event costs</td>
+				</tr>
+
+				<tr class="band">
+					<td>@Model.TransactionDate.ToString("dd-MMM-yyyy")</td>
+					<td>
+						Brokerage Fees from Sale of @Model.CapitalLossLotsSold.Quantity.ToString("#,###,##0.0###") @Model.Symbol shares at @Model.StrikePrice.ToString("#,###,##0.00") USD
+						<p>Fee: @Model.CapitalLossLotsSold.Fees.ToString("#,###,##0.0###") USD @(FormatFxDetails(@Model.TransactionDate, @Model.FxRate))</p>
+					</td>
+					<td style="text-align: right"></td>
+					<td style="text-align: right">@Model.CapitalLossLotsSold.FeesAUD.ToString("$#,###,##0.00")</td>
+					<td style="text-align: right">@Model.CapitalLossLotsSold.FeesAUD.ToString("$#,###,##0.00")</td>
+					<td colspan="2"></td>
+				</tr>
+
+				<tr>
+					<td class="bold" style="text-align: right" colspan="4">Cost Base:</td>
+					<td class="subtotal" style="text-align: right">@Model.CapitalLossLotsSold.CostBaseAUD.ToString("$#,###,##0.00")</td>
+					<td colspan="2"></td>
+				</tr>
+
+				<tr class="subsection">
+					<td colspan="7">Proceeds from CGT event</td>
+				</tr>
+
+				<tr class="band">
+					<td>@Model.TransactionDate.ToString("dd-MMM-yyyy")</td>
+					<td>
+						Sale of @Model.CapitalLossLotsSold.Quantity.ToString("#,###,##0.0###") @Model.Symbol shares at $@Model.StrikePrice.ToString("#,###,##0.00") USD
+						<p>Qty: @Model.CapitalLossLotsSold.Quantity.ToString("#,###,##0.0###") x Strike: @Model.StrikePrice.ToString("#,###,##0.00") = @Model.CapitalLossLotsSold.Proceeds.ToString("#,###,##0.00") USD @(FormatFxDetails(@Model.TransactionDate, @Model.FxRate))</p>
+					</td>
+					<td colspan="3"></td>
+					<td style="text-align: right">@Model.CapitalLossLotsSold.ProceedsAUD.ToString("$#,###,##0.00")</td>
+					<td></td>
+				</tr>
+
+				<tr>
+					<td class="bold" style="text-align: right" colspan="5">Proceeds:</td>
+					<td class="subtotal" style="text-align: right">@Model.CapitalLossLotsSold.ProceedsAUD.ToString("$#,###,##0.00")</td>
+					<td></td>
+				</tr>
+
+				<tr style="margin-bottom:1em;">
+					<td class="bold" style="text-align: right" colspan="6">Net Capital Losses:</td>
+					<td class="total" style="text-align: right">@Model.CapitalLossLotsSold.NetCapitalGainAUD.ToString("$#,###,##0.00")</td>
+				</tr>
+			}
+			<!-- Short-Term Capital Gains -->
+			@if (Model.ShortTermLotsSold.Quantity > 0)
+			{
+				<tr class="section">
+					<td colspan="7">Short Term Capital Gains</td>
+				</tr>
+
+				<tr class="subsection">
+					<td colspan="7">Acquisition/Purchase costs</td>
+				</tr>
+
+				var rowCount = 0;
+				foreach (var stockLot in Model.ShortTermLotsSold.LotsSold)
+				{
+					<tr class="@(rowCount++ % 2 == 0 ? "band" : "")">
+						<td>@stockLot.BuyDate.ToString("dd-MMM-yyyy")</td>
+						<td>
+							Acquisition of @stockLot.QuantitySold.ToString("#,###,##0.0###") @Model.Symbol shares at @stockLot.CostUnitAUD.ToString("#,###,##0.00") (#@stockLot.Reference)
+							<p>Qty: @stockLot.QuantitySold.ToString("#,###,##0.0###") x Cost: @stockLot.CostUnitAUD.ToString("#,###,##0.00##") = @stockLot.CostAUD.ToString("#,###,##0.00")</p>
+						</td>
+						<td style="text-align: right">@stockLot.CostAUD.ToString("$#,###,##0.00")</td>
+						<td style="text-align: right"></td>
+						<td style="text-align: right">@stockLot.CostAUD.ToString("$#,###,##0.00")</td>
+						<td colspan="2"></td>
+					</tr>
+				}
+
+				<tr class="subsection">
+					<td colspan="7">Incidental Acquisition/Purchase costs</td>
+				</tr>
+				rowCount = 0;
+				foreach (var stockLot in Model.ShortTermLotsSold.LotsSold)
+				{
+					<tr class="@(rowCount++ % 2 == 0 ? "band" : "")">
+						<td>@stockLot.BuyDate.ToString("dd-MMM-yyyy")</td>
+						<td>
+							ESS Taxes Paid (#@stockLot.Reference)
+							<p>FMV: @stockLot.BuyMarketPrice.ToString("#,###,##0.00##") - Strike: @stockLot.BuyStrikePrice.ToString("#,###,##0.00##") = @stockLot.EssGain.ToString("#,###,##0.00##") x Qty: @stockLot.QuantitySold.ToString("#,###,##0.0###") = @stockLot.EssTotalGain.ToString("#,###,##0.0###") USD @(FormatFxDetails(stockLot.BuyDate, stockLot.FxRate))</p>
+						</td>
+						<td style="text-align: right"></td>
+						<td style="text-align: right">@stockLot.EssTaxPaid.ToString("$#,###,##0.00")</td>
+						<td style="text-align: right">@stockLot.EssTaxPaid.ToString("$#,###,##0.00")</td>
+						<td colspan="2"></td>
+					</tr>
+				}
+
+				<tr class="subsection">
+					<td colspan="5">Incidental CGT Event costs</td>
+				</tr>
+
+				<tr class="band">
+					<td>@Model.TransactionDate.ToString("dd-MMM-yyyy")</td>
+					<td>
+						Brokerage Fees from Sale of @Model.ShortTermLotsSold.Quantity.ToString("#,###,##0.0###") @Model.Symbol shares at @Model.StrikePrice.ToString("#,###,##0.00") USD
+						<p>Fee: @Model.ShortTermLotsSold.Fees.ToString("#,###,##0.0###") USD @(FormatFxDetails(@Model.TransactionDate, @Model.FxRate))</p>
+					</td>
+					<td style="text-align: right"></td>
+					<td style="text-align: right">@Model.ShortTermLotsSold.FeesAUD.ToString("$#,###,##0.00")</td>
+					<td style="text-align: right">@Model.ShortTermLotsSold.FeesAUD.ToString("$#,###,##0.00")</td>
+					<td colspan="2"></td>
+				</tr>
+
+				<tr>
+					<td class="bold" style="text-align: right" colspan="4">Cost Base:</td>
+					<td class="subtotal" style="text-align: right">@Model.ShortTermLotsSold.CostBaseAUD.ToString("$#,###,##0.00")</td>
+					<td colspan="2"></td>
+				</tr>
+
+				<tr class="subsection">
+					<td colspan="7">Proceeds from CGT event</td>
+				</tr>
+
+				<tr class="band">
+					<td>@Model.TransactionDate.ToString("dd-MMM-yyyy")</td>
+					<td>
+						Sale of @Model.ShortTermLotsSold.Quantity.ToString("#,###,##0.0###") @Model.Symbol shares at $@Model.StrikePrice.ToString("#,###,##0.00") USD
+						<p>Qty: @Model.ShortTermLotsSold.Quantity.ToString("#,###,##0.0###") x Strike: @Model.StrikePrice.ToString("#,###,##0.00") = @Model.ShortTermLotsSold.Proceeds.ToString("#,###,##0.00") USD @(FormatFxDetails(@Model.TransactionDate, @Model.FxRate))</p>
+					</td>
+					<td colspan="3"></td>
+					<td style="text-align: right">@Model.ShortTermLotsSold.ProceedsAUD.ToString("$#,###,##0.00")</td>
+					<td></td>
+				</tr>
+
+				<tr>
+					<td class="bold" style="text-align: right" colspan="5">Proceeds:</td>
+					<td class="subtotal" style="text-align: right">@Model.ShortTermLotsSold.ProceedsAUD.ToString("$#,###,##0.00")</td>
+					<td></td>
+				</tr>
+
+				<tr style="margin-bottom:1em;">
+					<td class="bold" style="text-align: right" colspan="6">Net Short Term Capital Gains:</td>
+					<td class="total" style="text-align: right">@Model.ShortTermLotsSold.NetCapitalGainAUD.ToString("$#,###,##0.00")</td>
+				</tr>
+			}
+			<!-- Long-Term Capital Gains -->
+			@if (Model.LongTermLotsSold.Quantity > 0)
+			{
+				<tr class="section">
+					<td colspan="7">Long Term Capital Gains</td>
+				</tr>
+				<tr class="subsection">
+					<td colspan="7">Acquisition/Purchase costs</td>
+				</tr>
+
+				var rowCount = 0;
+				foreach (var stockLot in Model.LongTermLotsSold.LotsSold)
+				{
+					<tr class="@(rowCount++ % 2 == 0 ? "band" : "")">
+						<td>@stockLot.BuyDate.ToString("dd-MMM-yyyy")</td>
+						<td>
+							Acquisition of @stockLot.QuantitySold.ToString("#,###,##0.0###") @Model.Symbol shares at @stockLot.CostUnitAUD.ToString("#,###,##0.00") (#@stockLot.Reference)
+							<p>Qty: @stockLot.QuantitySold.ToString("#,###,##0.0###") x Cost: @stockLot.CostUnitAUD.ToString("#,###,##0.00##") = @stockLot.CostAUD.ToString("#,###,##0.00")</p>
+						</td>
+						<td style="text-align: right">@stockLot.CostAUD.ToString("$#,###,##0.00")</td>
+						<td style="text-align: right"></td>
+						<td style="text-align: right">@stockLot.CostAUD.ToString("$#,###,##0.00")</td>
+						<td colspan="2"></td>
+					</tr>
+				}
+
+				<tr class="subsection">
+					<td colspan="7">Incidental Acquisition/Purchase costs</td>
+				</tr>
+				rowCount = 0;
+				foreach (var stockLot in Model.LongTermLotsSold.LotsSold)
+				{
+					<tr class="@(rowCount++ % 2 == 0 ? "band" : "")">
+						<td>@stockLot.BuyDate.ToString("dd-MMM-yyyy")</td>
+						<td>
+							ESS Taxes Paid (#@stockLot.Reference)
+							<p>FMV: @stockLot.BuyMarketPrice.ToString("#,###,##0.00##") - Strike: @stockLot.BuyStrikePrice.ToString("#,###,##0.00##") = @stockLot.EssGain.ToString("#,###,##0.00##") x Qty: @stockLot.QuantitySold.ToString("#,###,##0.0###") = @stockLot.EssTotalGain.ToString("#,###,##0.0###") USD @(FormatFxDetails(stockLot.BuyDate, stockLot.FxRate))</p>
+						</td>
+						<td style="text-align: right"></td>
+						<td style="text-align: right">@stockLot.EssTaxPaid.ToString("$#,###,##0.00")</td>
+						<td style="text-align: right">@stockLot.EssTaxPaid.ToString("$#,###,##0.00")</td>
+						<td colspan="2"></td>
+					</tr>
+				}
+
+				<tr class="subsection">
+					<td colspan="5">Incidental CGT Event costs</td>
+				</tr>
+
+				<tr class="band">
+					<td>@Model.TransactionDate.ToString("dd-MMM-yyyy")</td>
+					<td>
+						Brokerage Fees from Sale of @Model.LongTermLotsSold.Quantity.ToString("#,###,##0.0###") @Model.Symbol shares at @Model.StrikePrice.ToString("#,###,##0.00") USD
+						<p>Fee: @Model.LongTermLotsSold.Fees.ToString("#,###,##0.0###") USD @(FormatFxDetails(@Model.TransactionDate, @Model.FxRate))</p>
+					</td>
+					<td style="text-align: right"></td>
+					<td style="text-align: right">@Model.LongTermLotsSold.FeesAUD.ToString("$#,###,##0.00")</td>
+					<td style="text-align: right">@Model.LongTermLotsSold.FeesAUD.ToString("$#,###,##0.00")</td>
+					<td colspan="2"></td>
+				</tr>
+
+				<tr>
+					<td class="bold" style="text-align: right" colspan="4">Cost Base:</td>
+					<td class="subtotal" style="text-align: right">@Model.LongTermLotsSold.CostBaseAUD.ToString("$#,###,##0.00")</td>
+					<td colspan="2"></td>
+				</tr>
+
+				<tr class="subsection">
+					<td colspan="7">Proceeds from CGT event</td>
+				</tr>
+
+				<tr class="band">
+					<td>@Model.TransactionDate.ToString("dd-MMM-yyyy")</td>
+					<td>
+						Sale of @Model.LongTermLotsSold.Quantity.ToString("#,###,##0.0###") @Model.Symbol shares at $@Model.StrikePrice.ToString("#,###,##0.00") USD
+						<p>Qty: @Model.LongTermLotsSold.Quantity.ToString("#,###,##0.0###") x Strike: @Model.StrikePrice.ToString("#,###,##0.00") = @Model.LongTermLotsSold.Proceeds.ToString("#,###,##0.00") USD @(FormatFxDetails(@Model.TransactionDate, @Model.FxRate))</p>
+					</td>
+					<td colspan="3"></td>
+					<td style="text-align: right">@Model.LongTermLotsSold.ProceedsAUD.ToString("$#,###,##0.00")</td>
+					<td></td>
+				</tr>
+
+				<tr>
+					<td class="bold" style="text-align: right" colspan="5">Proceeds:</td>
+					<td class="subtotal" style="text-align: right">@Model.LongTermLotsSold.ProceedsAUD.ToString("$#,###,##0.00")</td>
+					<td></td>
+				</tr>
+
+				<tr style="margin-bottom:1em;">
+					<td class="bold" style="text-align: right" colspan="6">Net Long Term Capital Gains:</td>
+					<td class="total" style="text-align: right">@Model.LongTermLotsSold.NetCapitalGainAUD.ToString("$#,###,##0.00")</td>
+				</tr>
+			}
+			<!-- Rounding -->
+			@if (Model.Rounding != 0)
+			{
+				<tr class="note">
+					<td style="text-align: right" colspan="6">rounding:</td>
+					<td style="text-align: right">@Model.Rounding.ToString("$#,###,##0.00")</td>
+				</tr>
+			}
+			</tbody>
+		</table>
+		<p>&nbsp;</p>
+		<table class="page-break" width="980">
+			<tr>
+				<td colspan="3">
+					<div>
+						<h2>Capital Gain Summary from Sale of Shares</h2>
+						<p>Sold @Model.Quantity.ToString("#,###,##0.0###") Microsoft Corporation (@Model.Symbol) shares at @Model.StrikePrice.ToString("#,###,##0.00##") USD.</p>
+					</div>
+				</td>
+			</tr>
+			<tr><td colspan="=3">&nbsp;</td></tr>
+			<tr class="section">
+				<td colspan="3">Summary</td>
+			</tr>
+			<tr>
+				<td colspan="3">Any capital losses are first offset against short term gains, and then long term gains.</td>
+			</tr>
+			<tr>
+				<td colspan="3">&nbsp;</td>
+			</tr>
+			<tr class="subsection">
+				<td colspan="3">Capital Gains on shares applicable for 'Other' method (short term gains)</td>
+			</tr>
+			<tr class="band">
+				<td width="*">Short Term Capital Gains:</td>
+				<td width="80" style="text-align: right">@Model.ShortTermCapitalGainAUD.ToString("$#,###,##0.00")</td>
+				<td width="80" style="text-align: right"></td>
+			</tr>
+			<tr>
+				<td><i>less</i> Capital losses available to be offset:</td>
+				<td style="text-align: right">@Model.ShortTermCapitaCapitalLossesAUD.ToString("$#,###,##0.00")</td>
+				<td style="text-align: right">@Model.NetShortTermCapitalGainAUD.ToString("$#,###,##0.00")</td>
+			</tr>
+			<tr>
+				<td class="bold" style="text-align: right" colspan="2">Net Short Term Capital Gains:</td>
+				<td class="subtotal" style="text-align: right">@Model.NetShortTermCapitalGainAUD.ToString("$#,###,##0.00")</td>
+			</tr>
+			<tr>
+				<td colspan="3">&nbsp;</td>
+			</tr>
+			<tr class="subsection">
+				<td colspan="3">Capital Gains on shares applicable for 'Discount' method (long term gains)</td>
+			</tr>
+			<tr class="band">
+				<td>Long Term Gains:</td>
+				<td style="text-align: right">@Model.LongTermCapitalGainAUD.ToString("$#,###,##0.00")</td>
+				<td style="text-align: right"></td>
+			</tr>
+			<tr>
+				<td><i>less</i> Capital losses available to be offset:</td>
+				<td style="text-align: right">@Model.LongTermCapitaCapitalLossesAUD.ToString("$#,###,##0.00")</td>
+				<td style="text-align: right">@Model.NetLongTermCapitalGainAUD.ToString("$#,###,##0.00")</td>
+			</tr>
+			<tr class="band">
+				<td><i>less</i> CGT Concession Amount at 50%:</td>
+				<td></td>
+				<td style="text-align: right">@Model.LongTermCapitalGainConessionAmount.ToString("$#,###,##0.00")</td>
+			</tr>
+			<tr>
+				<td class="bold" style="text-align: right" colspan="2">Net Long Term Capital Gains:</td>
+				<td class="subtotal" style="text-align: right">@Model.NetLongTermDiscountedCapitalGainAUD.ToString("$#,###,##0.00")</td>
+			</tr>
+			<tr>
+				<td colspan="3">&nbsp;</td>
+			</tr>
+			<tr class="subsection">
+				<td colspan="3">Net Capital Gains on shares (short + long term gains)</td>
+			</tr>
+			<tr>
+				<td class="bold" style="text-align: right" colspan="2">Net Capital Gains:</td>
+				<td class="total" style="text-align: right">@Model.NetCapitalGainAUD.ToString("$#,###,##0.00")</td>
+			</tr>
+		</table>
+		<footer>
+			<p><strong>Note</strong>: all amounts shown in Australian Dollars (AUD) using the published Australian Tax Office (ATO) foreign exchange rate, unless otherwise specified.</p>
+		</footer>
+	</div>
+</body>
+</html>

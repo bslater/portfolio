@@ -1,0 +1,253 @@
+@model SharePortfolio.DividendLedgerEntry
+@using SharePortfolio
+@using System
+@using System.Linq
+@{
+	var isOddRow = true;
+
+	string FormatFxDetails(DateOnly transactionDate, FxRateDetail fxRate)
+	{
+		var provider = fxRate.Provider != "ATO" && fxRate.Provider != "RBA" ? fxRate.Provider : null;
+		var qualifier = transactionDate != fxRate.Date ? " " + fxRate.Date.ToString("dd-MMM-yyyy") : "";
+		qualifier += fxRate.Provider != "ATO" && fxRate.Provider != "RBA"
+			? (qualifier.Length == 0 ? "" : " ") + fxRate.Provider
+			: "";
+
+		return $"(1 AUD/{fxRate.Rate.ToString("0.0000")} USD{qualifier})";
+	}
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>CSS Template</title>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<style>
+		body {
+			font-family: "Segoe UI Light";
+			font-size: 1em;
+		}
+
+		footer {
+			background-color: #f1f1f1;
+			padding: 10px;
+			font-family: "Segoe UI";
+			font-size: 0.6em;
+			text-align: right;
+			border-top: 1px solid #ddd;
+			margin-top: 1em;
+		}
+		.sidenav {
+			height: max-content;
+			position: fixed;
+			z-index: 1;
+			border: 1px solid #a0a0a0;
+			border-radius: 0.25em;
+			overflow-x: hidden;
+		}
+
+		div.box {
+			margin: 0.25em;
+			padding: 0.25em;
+			text-align: right;
+			width: 120px;
+		}
+
+			div.box div {
+				padding: 0.25em;
+			}
+
+			div.box p {
+				font-family: "Segoe UI Semibold";
+				font-size: 0.6em;
+				padding: 0;
+				margin: 0;
+				text-transform: uppercase;
+			}
+
+		.main,
+		.top {
+			margin-left: 140px;
+			padding-left: 20px;
+		}
+
+		h1,
+		h2,
+		h3,
+		p {
+			margin: 0;
+		}
+
+			h3.subsection {
+				margin-top: 0.5em;
+			}
+
+		table {
+			font-family: "Segoe UI Light";
+			font-size: 0.8em;
+			border-spacing: 0;
+			border-collapse: collapse;
+		}
+
+		tr.band {
+			background-color: #f0f0f0;
+		}
+
+		.subsection {
+			background-color: #fff;
+		}
+
+		td,
+		th {
+			padding: 2px 10px 2px 3px;
+			vertical-align: top;
+		}
+
+		th {
+			text-align: left;
+			font-family: "Segoe UI Semibold";
+			font-style: normal;
+			text-transform: capitalize;
+			vertical-align: bottom;
+			background-color: #fff;
+			border-bottom: 1px solid #a0a0a0;
+		}
+
+		td > p {
+			font-size: 0.8em;
+		}
+
+		td.bold {
+			font-family: "Segoe UI Semibold";
+		}
+
+		td.total {
+			border-bottom-color: #a0a0a0;
+			border-bottom-style: double;
+			border-top-color: #a0a0a0;
+			border-top-style: solid;
+			border-top-width: 1px;
+		}
+
+		td.subtotal {
+			border-bottom-style: solid;
+			border-bottom-width: 1px;
+			border-bottom-color: #a0a0a0;
+		}
+
+		tr.section > td {
+			font-family: "Segoe UI Semibold";
+			text-decoration: underline;
+			text-transform: capitalize;
+			border-top-color: #a0a0a0;
+			border-top-style: solid;
+			border-top-width: 1px;
+			background-color: #a0a0a0;
+			padding: 0.5em 0em 0.5em 0.25em;
+		}
+
+		tr.subsection > td {
+			font-family: "Segoe UI";
+			text-decoration: underline;
+			text-transform: lowercase;
+		}
+
+		tr.note > td {
+			text-transform: lowercase;
+			font-size: smaller;
+		}
+	</style>
+</head>
+<body>
+	<div>
+		<div class="sidenav" style="height: max-content">
+			<div class="box">@Model.Reference<p>Reference</p></div>
+			<div class="box">@Model.Beneficiary<p>Beneficiary</p></div>
+			<div class="box">@Model.TransactionDate.ToString("dd-MMM-yyyy")<p>Transaction Date</p></div>
+			<div class="box">@Model.ProceedsAUD.ToString("$#,###,##0.00")<p>Proceeds</p></div>
+			<div class="box">@Model.TaxWithheldAUD.ToString("$#,###,##0.00")<p>Tax Withheld</p></div>
+			<div class="box">@Model.NetProceedsAUD.ToString("$#,###,##0.00")<p>Net Proceeds</p></div>
+		</div>
+		<div class="main">
+			<table width="980">
+				<thead><tr><td colspan="5">
+							<div >
+								<h2>Foreign Cash Dividend</h2>
+								<p>Microsoft Corporation (@Model.Symbol) Dividend Received (@Model.SharesHeld.ToString("#,###,###,##0.0###") @@ @Model.Dividend.ToString("$#,###,##0.00") USD/share).</p>
+							</div>
+
+				</td></tr>
+				<tr>
+					<th width="80">date</th>
+					<th width="*">description</th>
+					<th style="text-align: right" width="80">Credits</th>
+					<th style="text-align: right" width="80">Debits</th>
+					<th style="text-align: right" width="80">Proceeds</th>
+					</tr>
+				</thead><tbody>
+				<tr>
+					<td colspan="5">&nbsp;</td>
+				</tr>
+				<tr class="section">
+					<td colspan="5">Account Activity</td>
+				</tr>
+				<tr class="subsection">
+					<td colspan="5">Activity In</td>
+				</tr>
+				<!---->
+				<tr class="band">
+					<td>@Model.TransactionDate.ToString("dd-MMM-yyyy")</td>
+					<td>
+						@Model.Symbol Unfranked Dividend Received
+						<p>Qty: @Model.SharesHeld.ToString("#,###,###,##0.0###") x @Model.Dividend.ToString("#,###,##0.00##") = @Model.Proceeds.ToString("$#,###,##0.00") USD @(FormatFxDetails(Model.TransactionDate, Model.FxRate))</p>
+					</td>
+					<td style="text-align: right">@Model.ProceedsAUD.ToString("$#,###,##0.00")</td>
+					<td colspan="2"></td>
+				</tr>
+				<tr>
+					<td class="bold" style="text-align: right" colspan="2">
+						credits:
+					</td>
+					<td class="subtotal" style="text-align: right">@Model.ProceedsAUD.ToString("$#,###,##0.00")</td>
+					<td colspan="2"></td>
+				</tr>
+				<tr class="subsection">
+					<td colspan="7">Activity Out</td>
+				</tr>
+				<td>@Model.TransactionDate.ToString("dd-MMM-yyyy")</td>
+				<td>
+					Non-Resident Tax (US Inland Revenue Services) Withheld
+					<p>@Model.TaxWithheld.ToString("$#,###,##0.00") USD @(FormatFxDetails(Model.TransactionDate, Model.FxRate))</p>
+				</td>
+				<td></td>
+				<td style="text-align: right">@Model.TaxWithheldAUD.ToString("$#,###,##0.00")</td>
+				<td></td>
+				</tr>
+				<tr>
+					<td class="bold" style="text-align: right" colspan="3">
+						debits:
+					</td>
+					<td class="subtotal" style="text-align: right">@Model.TaxWithheldAUD.ToString("$#,###,##0.00")</td>
+					<td></td>
+				</tr>
+				<tr>
+					<td class="bold" style="text-align: right" colspan="4">
+						net proceeds:
+					</td>
+					<td class="total" style="text-align: right">@Model.NetProceedsAUD.ToString("$#,###,##0.00")</td>
+				</tr>
+				@if (Model.Rounding != 0)
+				{
+					<tr class="note">
+						<td style="text-align: right" colspan="4">rounding:</td>
+						<td style="text-align: right">@Model.Rounding.ToString("$#,###,##0.00")</td>
+					</tr>
+					}</tbody>
+			</table>
+		</div>
+		<footer>
+			<p><strong>Note</strong>: all amounts shown in Australian Dollars (AUD) using the published Australian Tax Office (ATO) foreign exchange rate, unless otherwise specified.</p>
+		</footer>
+	</div>
+</body>
+</html>
