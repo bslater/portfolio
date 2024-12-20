@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace SharePortfolio.Model
 {
-    public interface IHasDateProperty
+    public interface ISortDateProperty
     {
         public DateOnly Date{ get; }
     }
