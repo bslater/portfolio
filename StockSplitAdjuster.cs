@@ -12,30 +12,29 @@ namespace SharePortfolio
         private Dictionary<DateOnly, decimal> adjustmentFactors;
         private Dictionary<(DateOnly splitDate, DateOnly effectiveDate), decimal> adjustmentMatrix;
 
-        public StockSplitAdjuster(IEnumerable<StockSplit> splits)
-        {
-            // Initialize dictionaries
-            adjustmentFactors = new Dictionary<DateOnly, decimal>();
-            adjustmentMatrix = new Dictionary<(DateOnly, DateOnly), decimal>();
-
-            // Populate adjustment factors and matrix
-            decimal cumulativeRatio = 1;
-            foreach (var split in splits.OrderBy(s => s.SplitDate))
-            {
-                cumulativeRatio *= split.Ratio;
-                adjustmentFactors[split.SplitDate] = cumulativeRatio;
-                foreach (var entry in adjustmentFactors)
-                {
-                    adjustmentMatrix[(split.SplitDate, entry.Key)] = entry.Value / cumulativeRatio;
-                    adjustmentMatrix[(entry.Key, split.SplitDate)] = cumulativeRatio / entry.Value;
-                }
-            }
-        }
+	public StockSplitAdjuster(IEnumerable<StockSplit> splits)
+	{
+	    adjustmentFactors = splits.OrderBy(s => s.SplitDate)
+	                              .ToDictionary(s => s.SplitDate, s => s.Ratio);
+	    adjustmentMatrix = new Dictionary<(DateOnly, DateOnly), decimal>();
+	
+	    decimal cumulativeRatio = 1;
+	    foreach (var split in splits.OrderBy(s => s.SplitDate))
+	    {
+	        cumulativeRatio *= split.Ratio;
+	        adjustmentFactors[split.SplitDate] = cumulativeRatio;
+	        foreach (var entry in adjustmentFactors.Keys)
+	        {
+	            adjustmentMatrix[(split.SplitDate, entry)] = adjustmentFactors[entry] / cumulativeRatio;
+	            adjustmentMatrix[(entry, split.SplitDate)] = cumulativeRatio / adjustmentFactors[entry];
+	        }
+	    }
+	}
 
         public decimal GetAdjustmentFactor(DateOnly transactionDate)
             => this.GetAdjustmentFactor(transactionDate, DateOnly.FromDateTime(DateTime.Today));
 
-		public decimal GetAdjustmentFactor(DateOnly transactionDate, DateOnly referenceDate)
+	public decimal GetAdjustmentFactor(DateOnly transactionDate, DateOnly referenceDate)
         {
             // Find the minimum split date less than or equal to the transaction date
             var minSplitDate = adjustmentFactors.Keys.LastOrDefault(d => d <= transactionDate);
